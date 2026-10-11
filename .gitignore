@@ -1,0 +1,11 @@
+/build/
+/third_party/
+/tools/
+/artifacts/
+/.vs/
+/.idea/
+/CMakeUserPresets.json
+*.user
+*.suo
+__pycache__/
+*.pyc

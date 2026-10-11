@@ -1,0 +1,13 @@
+{
+  "juce": {
+    "version": "9.0.3",
+    "repository": "https://github.com/juce-framework/JUCE.git",
+    "revision": "be29c81492b6151c8ea8d14c840e1311963b3a83",
+    "directory": "third_party/JUCE"
+  },
+  "pluginval": {
+    "version": "1.0.4",
+    "download": "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip",
+    "directory": "tools/pluginval-1.0.4"
+  }
+}

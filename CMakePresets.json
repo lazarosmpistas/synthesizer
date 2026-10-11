@@ -1,0 +1,90 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_VERSION": "10.0.26100.0",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "toolchain",
+      "displayName": "Offline Windows x64 toolchain check",
+      "inherits": "windows-base",
+      "binaryDir": "${sourceDir}/build/toolchain",
+      "cacheVariables": {
+        "SYNTH_ENABLE_JUCE_SMOKE": "OFF",
+        "SYNTH_BUILD_PLUGIN": "OFF"
+      }
+    },
+    {
+      "name": "juce",
+      "displayName": "JUCE audio and GUI dependency check",
+      "inherits": "windows-base",
+      "binaryDir": "${sourceDir}/build/juce",
+      "cacheVariables": {
+        "SYNTH_ENABLE_JUCE_SMOKE": "ON",
+        "SYNTH_BUILD_PLUGIN": "OFF"
+      }
+    },
+    {
+      "name": "plugin",
+      "displayName": "Synthesizer VST3 and scaffold check",
+      "inherits": "windows-base",
+      "binaryDir": "${sourceDir}/build/plugin",
+      "cacheVariables": {
+        "SYNTH_ENABLE_JUCE_SMOKE": "OFF",
+        "SYNTH_BUILD_PLUGIN": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "toolchain-release",
+      "configurePreset": "toolchain",
+      "configuration": "Release"
+    },
+    {
+      "name": "juce-release",
+      "configurePreset": "juce",
+      "configuration": "Release"
+    },
+    {
+      "name": "plugin-release",
+      "configurePreset": "plugin",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "toolchain-release",
+      "configurePreset": "toolchain",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "juce-release",
+      "configurePreset": "juce",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "plugin-release",
+      "configurePreset": "plugin",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    }
+  ]
+}
