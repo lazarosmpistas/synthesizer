@@ -36,18 +36,26 @@ Scope selected by the user on 2026-10-12 during planning:
 - No effects, filters, or user-adjustable amplitude settings in this milestone.
 - Keep the existing Windows x64 VST3 identity and installation workflow.
 
-Recommended implementation defaults, not yet user-selected requirements:
+Implementation defaults adopted on 2026-10-12 for the requested basic saw
+(engineering choices within the selected scope):
 
 - Eight simultaneous voices, one saw oscillator per voice, for melodies and chords.
 - Standard equal-tempered tuning with MIDI note 69 at 440 Hz.
 - MIDI note velocity controls loudness; no additional gain control in the editor.
-- An oscillator that reduces aliasing, with fixed output headroom for all voices.
-- Very short fixed note fades to reduce clicks; start with approximately 3 ms
-  attack and 5 ms release, then check by listening. These are internal constants,
+- A PolyBLEP saw to reduce discontinuity aliasing; residual aliasing remains.
+  Fixed gain is 0.1 per voice, with a worst-case eight-voice peak below 0.8.
+- Short linear fades: 3 ms attack and 5 ms release, rounded up to whole samples.
+  Check by listening. These are internal constants,
   with no ADSR controls or sound-shaping envelope in the interface.
 - A preallocated voice pool and sample-position MIDI processing, with no allocation
-  or blocking locks in the audio callback. Define repeated-note and voice-stealing
-  behavior before implementation; verify both beyond the selected voice limit.
+  or blocking locks in the audio callback. Repeated pitches create separate voices;
+  note-off releases the oldest still-held/queued match on that MIDI channel.
+- When full, prefer an already-releasing voice, then the oldest held voice.
+  Fade the old voice for at most 1 ms before starting its replacement. If every
+  slot is fading, replace the oldest queued note without extending its fade.
+  A note-off can cancel a queued note. Stolen notes are discarded, not restored.
+- MIDI CC123 releases that channel's held voices and cancels its queued notes;
+  CC120 immediately silences that channel. Prepare, release, and reset clear voices.
 - Leave sustain, pitch bend, modulation, and presets for later feature choices.
 
 Acceptance: pitched saw output follows note timing, becomes silent after release,
@@ -75,8 +83,8 @@ subtractive-synth direction remains open beyond this first oscillator.
 | Choice | Current answer | Needed before |
 | --- | --- | --- |
 | Synth type and reference sounds | Fixed saw selected for M3; broader direction open | Later sound development |
-| First feature set and voice count | MIDI/piano-roll saw, no effects/filters/amp controls; eight voices recommended | First playable implementation |
-| MIDI expression and note transitions | Velocity and short fixed fades recommended; exact behavior to settle | First playable implementation |
+| First feature set and voice count | MIDI/piano-roll saw, no effects/filters/amp controls; eight voices adopted | Later polyphony choices |
+| MIDI expression and note transitions | Velocity, fixed fades, FIFO note-off, bounded stealing adopted; sustain/bend deferred | Later expression features |
 | Distribution and release licensing | Private use now; release route deferred | Distribution |
 | Interface style | Foundation UI; refinement open | Interface refinement |
 | Performance target and test machine | Unspecified | Benchmark acceptance |

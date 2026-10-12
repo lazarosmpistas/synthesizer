@@ -4,71 +4,72 @@ Updated: 2026-10-12. Replaceable checkpoint; verify disk before continuing.
 
 ## Current task
 
-- Planning M3: user selected a simple saw playable with MIDI and FL piano-roll
-  notes, with no effects, filters, or adjustable amplitude settings.
-- Scope/sequence/checks recorded in SPEC, PLAN, TESTING, and DECISIONS D011.
-  Eight voices, velocity response, and short fixed fades are recommendations.
-- Target host: FL Studio 21.2.3 build 4004, Windows x64.
-- User confirmed both the original scaffold and renamed E: installation open in FL.
-- Private development; broader sound design and release licensing remain open.
+- User requested the basic saw oscillator build. M3 is implemented, built,
+  validated, and installed; FL Studio listening/host acceptance is pending.
+- Selected scope: MIDI/piano-roll saw, no effects, filters, or amp controls.
+- Adopted defaults: eight PolyBLEP voices, A4=440 Hz, velocity, gain 0.1/voice,
+  fixed 3/5 ms fades and at most 1 ms fade before a stolen slot starts its note.
+  FIFO surviving-note release/channels/panic/queued stealing are in SPEC/D012.
+- Target host: FL Studio 21.2.3 build 4004, Windows x64; private development.
+- Earlier user AGENTS.md tracking-hygiene changes are preserved and uncommitted.
 
 ## Last completed checkpoint
 
-- LAZ-SYNTH v0.1.0 by LAZ builds with pinned JUCE 9.0.3, MSVC v143, and CMake.
-- MIDI instrument, no audio input, stereo output; deliberately silent for M2.
-- Native 560x320 editor. No user parameters or persistent settings yet.
-- Stable identity codes Laza/Syba in CMakeLists; CIDs in DECISIONS D007.
-- Plugin preset, product harness, validation/staging/install scripts implemented.
-- README has exact build/install/FL scan steps; CODE_MAP lists source/artifacts.
-- Physical bundle: E:/everything_music_related/VstPlugins/LAZ-SYNTH.vst3.
-- FL entry: C:/Program Files/Common Files/VST3/LAZ-SYNTH.vst3 is a junction to E:.
-- Original C:/E: bundles preserved in backups; stable VST3 CIDs verified.
+- Final M3 x64 Release build/CTest 2/2, headless/full GUI pluginval, staging,
+  E: installation, and native loading through the existing C: junction passed.
+- Implemented Source/DSP saw/voice engine, processor sample-position MIDI and
+  lifecycle reset, fixed 5 ms reported tail, and editor's playable-saw status.
+- Product harness passed pitch/harmonics/alias reduction, fades/velocity, all
+  128 notes at 44.1/48/96 kHz, timing/block equivalence, overlap/channels/stealing,
+  dense bursts/panic, lifecycle/state/layout/editor, FIFO, empty/boundary blocks,
+  and long-held notes. Exact source/binary hashes are in the M3 report below.
+- Plugin remains LAZ-SYNTH v0.1.0 by LAZ, JUCE 9.0.3, MSVC v143/CMake.
+- Stable identity Laza/Syba and D007 CIDs are retained; no user parameters/settings.
+- Historical M2 scaffold opened in FL (user report); this does not validate M3.
 
 ## Work in progress
 
-- Planning only this turn; no DSP, processor, UI, or binary changes. Existing
-  callback/harness verified on disk: they still implement/test M2 silence.
-  Renamed installation opens in FL (user report).
-  Host editor lifecycle, multiple instances, and project save/reopen are unreported.
-- Physical updates use plugin-install.json's E: root without UAC. One-time
-  Configure-PluginInstall setup is complete; no admin needed for normal updates.
-- All source is uncommitted on local main, including earlier-session work.
-  No remote/commit created. Generated artifacts/dependencies are ignored.
+- No unfinished source work. Installed binary is now the playable M3 saw.
+- M3 milestone remains open until the user confirms FL listening/host behavior.
+- Build/stage are inside the workspace. Physical install is
+  E:/everything_music_related/VstPlugins/LAZ-SYNTH.vst3; standard C: VST3 entry
+  is its existing junction. Update used a non-administrator token with sandbox
+  approval; the prior M2 installation was backed up inside artifacts/install-backups.
+- Main starts at 976223f; no commit/push performed this turn. Generated outputs
+  and dependencies remain ignored. plugin-install.json is already ignored and
+  untracked on disk (the prior handoff's tracking warning was stale).
 
 ## Validation at this checkpoint
 
-- Prior M2 PASS: x64 Release/CTest 2/2; silent buffers/MIDI at 44.1/48/96 kHz
-  and 0/1/64/256/1024 samples; layouts, lifecycle, editor recreation/paint.
-- Prior M2 PASS: pluginval strictness 5 headless/full GUI, stable CIDs and branding,
-  staging/copy hashes, E: installation/junction loading, repeated non-admin updates.
-  Source/build/stage/E:/junction evidence: [branding/relocation report](validation/M2-branding-2026-10-12.md).
-- PASS (user report, 2026-10-12): original scaffold and renamed E: installation
-  open in FL. Editor lifecycle, multiple instances, and save/reopen are unreported.
-- Original foundation evidence: [M2 report](validation/M2-plugin-scaffold-2026-10-12.md).
-  Environment evidence: [M1 report](validation/M1-environment-complete-2026-10-11.md).
-- PASS at planning checkpoint: M3 scope/recommendation consistency reviewed;
-  PowerShell relative-link audit resolved 30 links across the six edited documents.
-  STATE remains about 80 lines. Source files and binaries are unchanged.
-- NOT RUN this turn: build, CTest, pluginval, installation, or audio/host checks;
-  documentation only, with no changed source or artifact to validate.
-- M3 musical behavior/listening and performance remain untested. Parameter
-  automation/settings checks are deferred until controls exist.
+- PASS: Build-Checks.ps1 -Preset plugin; x64 Release and final CTest 2/2, 1.08 seconds.
+- PASS: Validate-Plugin.ps1 -SkipGuiTests; built M3 VST3, strictness 5, seed 12345,
+  44.1/48/96 kHz, 64/256/1024 samples. Steinberg standalone validator unavailable.
+- PASS: coherent 9 kHz check folded-bin power is 0.0420173 times naive saw power;
+  this is a measured case, not a claim of alias-free output or performance.
+- Source audit: rendering uses fixed arrays and non-owning MIDI bytes; no
+  allocation, blocking locks, file access, or logs in product callback paths.
+- PASS: Stage-Plugin.ps1; Stage-Plugin.ps1 -Install -Validate (E: full GUI);
+  Validate-Plugin.ps1 -SkipGuiTests -PluginPath for the existing C: junction.
+- PASS: build/stage/E:/junction binary+manifest hashes match; branding/stable CIDs,
+  Git diff --check, ignore rules, and document links reviewed at the final source.
+- Evidence/commands/source hashes: [M3 report](validation/M3-fixed-saw-2026-10-12.md).
+- NOT RUN: M3 FL Studio listening/live MIDI/piano roll/export/lifecycle/project
+  checks; requires user participation. No performance benchmark claimed.
+- Prior M2/M1 evidence remains in docs/validation; it validates historical artifacts.
 
 ## Next action
 
-When implementation is requested, start with SPEC's M3 scope/defaults, PLAN M3,
-and TESTING M3. Record the adopted voice count, MIDI behavior, and fixed fades.
-Inspect Source/Plugin/PluginProcessor.*, Source/UI/PluginEditor.*,
-tests/PluginScaffoldCheck.cpp, and CMakeLists.txt. Add Source/DSP oscillator/voices,
-connect sample-position MIDI, and adapt silence checks to playable behavior.
-Keep the editor free of sound controls and preserve identity/install paths.
-Completion: build/behavior/pluginval checks pass for the installed artifact, then
-the user confirms live MIDI, piano-roll playback/export, and host lifecycle checks.
+Start with docs/validation/M3-fixed-saw-2026-10-12.md's pending FL checklist.
+User loads a fresh installed LAZ-SYNTH instance (editor says Saw oscillator),
+checks live MIDI/piano-roll chords, loops, stop/restart/export, two instances,
+and project save/reopen. Record sample rate/buffer and any issue in this checkpoint
+and the M3 report. Read TESTING M3/README as needed. Completion: user reports clean
+sound/no stuck notes and passing host checks, or a reproducible issue is fixed
+and the affected source/artifact checks are rerun before another listening pass.
 
 ## Open questions and blockers
 
-- No build/install blocker. E: must remain available for the junction.
-- Remaining host lifecycle/project checks are separate from confirmed opening.
-- Saw/no-controls scope is selected. Eight voices, velocity, and fixed fades are
-  proposed defaults; voice allocation/stealing and exact transitions need definition.
-- Preserve JUCE notices; settle distribution licensing before release.
+- No build/install blocker; E: must remain available for the junction.
+- FL musical/listening acceptance is pending; fixed fades may need adjustment.
+- Sustain, pitch bend, modulation, broader sound design, UI, and performance target
+  remain later choices. Preserve JUCE notices; settle licensing before distribution.

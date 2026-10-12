@@ -161,7 +161,7 @@ validation in [STATE](STATE.md). Update [SPEC](SPEC.md) when a requirement chang
 
 - Date: 2026-10-12.
 - Status: Scope explicitly selected by the user during planning; implementation
-  and recommended voice/velocity/fade defaults remain pending.
+  defaults adopted in D012 when the user requested the oscillator build.
 - Choice: M3 adds a simple saw playable through MIDI and FL Studio's piano roll,
   with no effects, filters, or adjustable amplitude settings.
 - Reason: Establish the smallest useful playable instrument before expanding
@@ -169,7 +169,35 @@ validation in [STATE](STATE.md). Update [SPEC](SPEC.md) when a requirement chang
 - Consequence: Replace the silent callback with a saw/voice engine and add musical
   behavior checks. Defer parameters, automation, and a settings format until there
   are controls to persist. Retain project save/reopen and installed-artifact host
-  checks. SPEC distinguishes the selected scope from recommended internal defaults.
+  checks. SPEC distinguishes the selected scope from adopted internal defaults.
+
+## D012 - Fixed PolyBLEP saw and preallocated eight-voice engine
+
+- Date: 2026-10-12.
+- Status: Implementation choices for the user's requested basic saw, within D011.
+- Choice: A rising PolyBLEP saw per voice, eight fixed slots, equal temperament
+  (A4 = 440 Hz), linear MIDI velocity, dual-mono stereo, gain 0.1 per voice.
+  Fixed linear attack/release are 3/5 ms, rounded up to whole samples. No controls.
+- Repeated pitches occupy separate slots. Note-off releases the oldest surviving
+  held or queued match on the same channel; zero-velocity note-on is note-off.
+  Prefer free slots, then releasing slots without queued notes, then oldest held
+  notes. A stolen slot fades to zero within 1 ms, then starts its queued replacement;
+  this can delay replacement onset by 1 ms when all slots are busy. Further steals
+  replace the oldest queued note without prolonging its fade. Note-off cancels a
+  queued note; dropped/stolen notes are never revived.
+- CC123 releases held voices/cancels queued notes on its channel. CC120 stops that
+  channel immediately, preserving other channels. Prepare/release/reset clear all
+  live voices. Sustain, pitch bend, modulation, and other messages are ignored.
+- Reason: PolyBLEP corrects the saw discontinuity without oversampling or additional
+  dependencies. Fixed fades reduce note clicks and avoid abruptly replacing an
+  audible voice. Queued replacement keeps eight oscillators and bounded output,
+  including repeated steals. These are engineering defaults, not new user controls.
+- Consequence: MIDI is handled at event sample positions, using non-owning bytes
+  so long SysEx messages cannot trigger message-copy allocation. Tuning increments
+  are prepared off the callback. Eight coherent voices stay below 0.8 peak without
+  a limiter. PolyBLEP reduces aliasing but does not eliminate it; listening remains
+  required. There are still no parameters or persisted settings, and VST3 identity
+  and version 0.1.0 remain unchanged. No performance claim is made.
 
 ## Adding or revising a decision
 

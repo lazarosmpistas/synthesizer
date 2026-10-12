@@ -45,7 +45,7 @@ Executables are `build/toolchain/Release/ToolchainSmoke.exe` and
 `build/juce/JuceModuleSmoke_artefacts/Release/JuceModuleSmoke.exe`. Local CTest
 logs are under each build tree's `Testing/Temporary/`.
 
-## M2 plugin scaffold
+## M2 plugin scaffold (historical behavior; M3 extends the same commands)
 
 - `Build-Checks.ps1 -Preset plugin` builds the actual x64 Release VST3 and runs
   `environment.toolchain` plus `plugin.scaffold`. The JUCE smoke preset remains
@@ -90,13 +90,15 @@ Raw CTest evidence: `build/plugin/Testing/Temporary/LastTest.log`.
 Raw pluginval evidence: `artifacts/validation/pluginval-headless.txt` or
 `pluginval-full.txt`. Identify the checked binary/manifest by hashes.
 
-## M3 fixed saw (planned checks, not yet implemented)
+## M3 fixed saw
 
-- Extend the actual product harness, retaining layouts, dirty-buffer clearing,
-  editor recreation, and prepare/release coverage. Update its M2 silence assertions
-  so held notes produce audio and idle/released voices produce silence.
+- `plugin.scaffold` is the retained CTest name for the product harness. It now
+  checks pitched held notes and idle/released silence, retaining layouts,
+  dirty-buffer clearing, editor recreation, and prepare/release coverage.
 - Verify pitch (including MIDI note 69 at 440 Hz if recommended tuning is adopted),
-  saw harmonic content, and chosen alias-reduction behavior across the note range.
+  saw harmonic content, and finite/bounded output across all 128 MIDI notes.
+  The coherent 9 kHz oscillator check compares folded-bin power at 3/12/21 kHz
+  to an uncorrected saw. This proves reduction in that case, not ideal bandlimiting.
 - Place note-on/off events inside blocks and at boundaries; verify that timing
   follows event sample positions and that rendering is consistent across block sizes.
 - Check note-off and zero-velocity note-on, repeated and overlapping pitches,
@@ -108,6 +110,9 @@ Raw pluginval evidence: `artifacts/validation/pluginval-headless.txt` or
   block sizes. Audit rendering for allocation, blocking locks, file access, and logs.
 - If velocity response and fixed fades are adopted, check velocity-dependent
   loudness and fade duration; listen to starts, releases, and stolen voices for clicks.
+  Check FIFO repeated-note release, releasing-slot preference, oldest-held stealing,
+  queued-note cancellation, and dense bursts. Replacement onset may be delayed
+  by at most the adopted 1 ms stealing fade when every slot is busy.
 - Run the documented plugin build/CTest, pluginval, and stage/install validation.
   Record source and artifact hashes; earlier scaffold checks do not validate M3.
 - In FL Studio 21.2.3 build 4004, play live MIDI and a piano-roll melody/chord

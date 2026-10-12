@@ -11,13 +11,19 @@ const juce::String SynthesizerAudioProcessor::getName() const
     return JucePlugin_Name;
 }
 
-void SynthesizerAudioProcessor::prepareToPlay(double, int)
+void SynthesizerAudioProcessor::prepareToPlay(double sampleRate, int)
 {
-    // No sound engine or resources yet. M3 will prepare the engine here.
+    engine.prepare(sampleRate);
 }
 
 void SynthesizerAudioProcessor::releaseResources()
 {
+    engine.reset();
+}
+
+void SynthesizerAudioProcessor::reset()
+{
+    engine.reset();
 }
 
 bool SynthesizerAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -29,8 +35,29 @@ bool SynthesizerAudioProcessor::isBusesLayoutSupported(const BusesLayout& layout
 
 void SynthesizerAudioProcessor::processBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi)
 {
-    // A host may provide uninitialised output memory. Always emit silence in M2.
+    juce::ScopedNoDenormals noDenormals;
+    // A host may provide uninitialised output memory, including extra channels.
     audio.clear();
+    if (audio.getNumChannels() < 2)
+    {
+        midi.clear();
+        return;
+    }
+
+    auto* left = audio.getWritePointer(0);
+    auto* right = audio.getWritePointer(1);
+    const int size = audio.getNumSamples();
+    int rendered = 0;
+    for (const auto metadata : midi)
+    {
+        const int position = juce::jlimit(rendered, size, metadata.samplePosition);
+        if (position > rendered)
+            engine.render(left + rendered, right + rendered, position - rendered);
+        engine.handleMidi(metadata.data, metadata.numBytes);
+        rendered = position;
+    }
+    if (size > rendered)
+        engine.render(left + rendered, right + rendered, size - rendered);
     midi.clear();
 }
 
@@ -41,7 +68,7 @@ juce::AudioProcessorEditor* SynthesizerAudioProcessor::createEditor()
 
 void SynthesizerAudioProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
-    // This scaffold has no parameters or user settings to persist.
+    // The fixed sound has no settings. Live voices are never saved as held notes.
     destination.reset();
 }
 

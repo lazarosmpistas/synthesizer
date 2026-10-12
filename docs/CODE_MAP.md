@@ -28,11 +28,14 @@ responsibilities change. Start with [STATE](STATE.md) for the active task.
 | [scripts/Validate-Plugin.ps1](../scripts/Validate-Plugin.ps1) | Pinned pluginval strictness 5; optional GUI-test skip/path | Actual VST3 validation |
 | [scripts/Stage-Plugin.ps1](../scripts/Stage-Plugin.ps1) | Workspace staging or E: install without UAC, backups/hashes/legacy retirement | Updating a built bundle |
 | [scripts/Configure-PluginInstall.ps1](../scripts/Configure-PluginInstall.ps1) | One-time original relocation, E: install, per-plugin FL junction, optional validation/preview | First install/migration setup |
-| [Source/Plugin/PluginProcessor.h](../Source/Plugin/PluginProcessor.h), [PluginProcessor.cpp](../Source/Plugin/PluginProcessor.cpp) | MIDI/stereo instrument lifecycle, silent callback, factory, empty state hooks | Host/audio behavior |
+| [Source/Plugin/PluginProcessor.h](../Source/Plugin/PluginProcessor.h), [PluginProcessor.cpp](../Source/Plugin/PluginProcessor.cpp) | MIDI/stereo instrument lifecycle, sample-position MIDI/rendering, factory, empty state hooks | Host/audio behavior |
+| [Source/DSP/SawOscillator.h](../Source/DSP/SawOscillator.h) | Phase-accumulating rising saw with PolyBLEP discontinuity correction | Oscillator/pitch/alias behavior |
+| [Source/DSP/SawVoiceEngine.h](../Source/DSP/SawVoiceEngine.h), [SawVoiceEngine.cpp](../Source/DSP/SawVoiceEngine.cpp) | Eight preallocated voices, tuning/velocity/fades, FIFO note-off, queued stealing and channel panic | MIDI/voice/audio behavior |
 | [Source/UI/PluginEditor.h](../Source/UI/PluginEditor.h), [PluginEditor.cpp](../Source/UI/PluginEditor.cpp) | Native fixed-size foundation editor | Editor changes |
 | [tests/ToolchainSmoke.cpp](../tests/ToolchainSmoke.cpp) | Windows x64 compiler/SDK/runtime check | Toolchain failures |
 | [tests/JuceModuleSmoke.cpp](../tests/JuceModuleSmoke.cpp) | JUCE audio/DSP/MIDI/parameter/GUI integration check | Module verification; not the product engine |
-| [tests/PluginScaffoldCheck.cpp](../tests/PluginScaffoldCheck.cpp) | Product layouts, silent dirty buffers, lifecycle/editor harness | Scaffold regression checks |
+| [tests/PluginScaffoldCheck.cpp](../tests/PluginScaffoldCheck.cpp) | Product saw/timing/voices/panic/state checks plus layouts/lifecycle/editor harness | Product regression checks; CTest plugin.scaffold |
+| [docs/validation/M3-fixed-saw-2026-10-12.md](validation/M3-fixed-saw-2026-10-12.md) | Fixed saw build, behavior/artifact evidence, and pending FL checks | Auditing M3 evidence |
 | [docs/validation/M1-2026-10-11.md](validation/M1-2026-10-11.md) | Exact setup-check results and source/artifact hashes | Auditing M1 evidence |
 | [docs/validation/M1-environment-complete-2026-10-11.md](validation/M1-environment-complete-2026-10-11.md) | Completed environment evidence, resolved failures, final source/artifact hashes | Auditing installed M1 environment |
 | [docs/validation/M2-plugin-scaffold-2026-10-12.md](validation/M2-plugin-scaffold-2026-10-12.md) | Original scaffold build/validation and user-confirmed FL loading | Auditing the original scaffold |
@@ -41,10 +44,12 @@ responsibilities change. Start with [STATE](STATE.md) for the active task.
 ## Implementation entry points
 
 `createPluginFilter` constructs `SynthesizerAudioProcessor`. Its `processBlock`
-clears output/MIDI; `createEditor` constructs `SynthesizerAudioProcessorEditor`.
+clears output, renders the voice engine between MIDI event positions, and consumes
+MIDI; `createEditor` constructs `SynthesizerAudioProcessorEditor`.
 `PluginScaffoldCheck::main` exercises the same shared processor/editor code as
 the wrapper. Environment entry points remain `ToolchainSmoke::main` and
-`JuceModuleSmoke::main`. No sound engine or parameters exist yet. Command usage
+`JuceModuleSmoke::main`. `SawVoiceEngine` owns the fixed oscillator/fade pool;
+`SawOscillator::nextSample` generates each voice's saw. No parameters exist yet. Command usage
 is in README; current validation/host status is in STATE.
 
 Generated paths (ignored by Git):
@@ -72,5 +77,4 @@ the E: bundle. Legacy C: bundles move to workspace backups; legacy E: bundles
 move to `E:\everything_music_related\VstPlugins\.laz-synth-backups` after checks.
 The internal CMake target remains `Synthesizer`.
 See STATE for whether installation/host acceptance passed for the current binary.
-Proposed for M3, not present: `Source/DSP/` for the selected sound engine/voices.
 Inspect mapped paths first; broaden searches when the task or evidence requires it.

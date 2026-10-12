@@ -90,6 +90,9 @@ if(SYNTH_BUILD_PLUGIN)
     target_sources(Synthesizer PRIVATE
         Source/Plugin/PluginProcessor.cpp
         Source/Plugin/PluginProcessor.h
+        Source/DSP/SawOscillator.h
+        Source/DSP/SawVoiceEngine.cpp
+        Source/DSP/SawVoiceEngine.h
         Source/UI/PluginEditor.cpp
         Source/UI/PluginEditor.h)
     target_include_directories(Synthesizer PUBLIC Source "${juce_source}/modules")

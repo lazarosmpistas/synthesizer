@@ -37,8 +37,8 @@ scan and load it using the documented procedure. Sound generation belongs to M3.
 
 Selected scope: A fixed saw sound playable with MIDI and ordinary FL Studio
 piano-roll notes, with no effects, filters, or adjustable amplitude settings.
-Voice count, velocity response, and short internal fades have recommended defaults
-in SPEC; record the adopted behavior when implementation begins.
+Eight voices, velocity response, and fixed internal fades are adopted in SPEC;
+DECISIONS D012 defines allocation and stealing behavior.
 
 Deliver in this order:
 

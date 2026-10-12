@@ -29,15 +29,15 @@ void SynthesizerAudioProcessorEditor::paint(juce::Graphics& graphics)
     graphics.fillRoundedRectangle(32.0f, 132.0f, static_cast<float>(bounds.getWidth() - 64), 112.0f, 12.0f);
     graphics.setColour(juce::Colour(0xff75ddbb));
     graphics.setFont(juce::FontOptions(19.0f, juce::Font::bold));
-    graphics.drawText("Your synth starts here", 52, 148, bounds.getWidth() - 104, 30,
+    graphics.drawText("Saw oscillator", 52, 148, bounds.getWidth() - 104, 30,
                       juce::Justification::centredLeft);
     graphics.setColour(juce::Colour(0xffc3cbd7));
     graphics.setFont(juce::FontOptions(15.0f));
-    graphics.drawText("This build is silent. The sound engine comes next.",
+    graphics.drawText("Play MIDI notes or use the FL Studio piano roll.",
                       52, 190, bounds.getWidth() - 104, 26, juce::Justification::centredLeft);
 
     graphics.setColour(juce::Colour(0xffa4afbf));
     graphics.setFont(juce::FontOptions(13.0f));
-    graphics.drawText("MIDI input  /  Stereo output", 32, bounds.getHeight() - 52,
+    graphics.drawText("8 voices  /  Velocity response  /  Stereo output", 32, bounds.getHeight() - 52,
                       bounds.getWidth() - 64, 24, juce::Justification::centredLeft);
 }

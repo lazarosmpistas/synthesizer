@@ -26,6 +26,11 @@ session was interrupted, inspect its listed work in progress before continuing.
 # Working rules
 - Implement focused changes with clear acceptance criteria.
 - Preserve unrelated user changes.
+- Review and update .gitignore regularly, especially before commits or pushes
+  and when tools, dependencies, or generated outputs change.
+- Keep only files necessary to build, test, configure, or document the project
+  tracked by Git. Exclude generated artifacts, caches, machine-specific settings,
+  and secrets. Review already-tracked files too; .gitignore does not untrack them.
 - Use the documented build and validation commands. If they do not exist yet,
   establish and verify them before describing them as available.
 - Report what passed, failed, or was not run, including the reason.

@@ -3,8 +3,9 @@
 A Windows x64 VST3 synthesizer project for **FL Studio 21.2.3 build 4004**, using
 C++17, JUCE, and CMake. Private use is the current goal. The development
 environment is installed. **LAZ-SYNTH v0.1.0**, vendor **LAZ**, is a minimal VST3 instrument
-with a native JUCE editor, MIDI input, and stereo output. This foundation is
-deliberately silent; M3 will add a fixed MIDI-playable saw sound.
+with a native JUCE editor, MIDI input, and stereo output. It now plays a fixed
+saw sound: eight voices, velocity response, and short internal note fades.
+There are no effects, filters, or sound controls yet.
 
 ## Build and open the plugin
 
@@ -21,10 +22,12 @@ without GUI tests, and staging with SHA256 comparisons (including repeated stagi
 The renamed E: installation also passes full GUI validation and native loading
 through its standard-folder junction. Physical updates and repeated setup were
 verified with a non-admin token; see STATE for the exact checkpoint.
-The processor check exercises silent output with MIDI at 44.1/48/96 kHz and
-0/1/64/256/1024 samples, layout rejection, and editor recreation/offscreen painting.
+The processor check exercises saw pitch/harmonics, alias reduction, fixed fades,
+velocity, MIDI timing, repeated notes/channels, eight voices/stealing, and panic
+messages at 44.1/48/96 kHz and 0/1/64/256/1024 samples. It retains layout rejection,
+lifecycle reset, and editor recreation/offscreen painting.
 pluginval loads the actual VST3 bundle and checks processing at 64/256/1024 samples.
-It has no user parameters, sound engine, or persistent settings yet; its state
+It has no user parameters or persistent settings yet; its state
 callbacks are empty. Passing state/automation checks does not verify future controls.
 
 The build produces this **folder bundle**:
@@ -88,15 +91,17 @@ In **FL Studio 21.2.3 build 4004**:
    **LAZ**, without an error. Star it to add it to favorites if desired.
 4. Add it from **Channel Rack > + > More plugins**, or the Browser's
    **Plugin database > Installed > Generators > VST3**. The editor should show
-   **Your synth starts here** and the silent-build message.
+   **Saw oscillator** and the MIDI/piano-roll prompt.
 5. Close/reopen its editor, add a second instance, then save/reopen a test project.
-   Both editors should reopen. MIDI notes produce silence in this milestone.
+   Both editors should reopen. Play MIDI and piano-roll melodies/chords; verify
+   short/long/repeated/overlapping notes, looping, stop/restart, and audio export.
+   Notes should stop after release without stuck voices or objectionable clicks.
 
 FL Studio's documented VST3 scan locations are standard folders. The junction
 provides a standard path while keeping the files on E:; adding E: or the staging
 folder as a custom VST search path alone is insufficient. See the
 [official installation guide](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/basics_externalplugins.htm).
-Record further host results in STATE and the [branding report](docs/validation/M2-branding-2026-10-12.md).
+Record saw host results in STATE and the [M3 report](docs/validation/M3-fixed-saw-2026-10-12.md).
 On 2026-10-12, the user confirmed the original scaffold loads and the renamed
 LAZ-SYNTH installation on E: opens in FL Studio. Editor lifecycle, multiple
 instances, and project save/reopen checks remain unreported.
@@ -246,10 +251,12 @@ Private use is settled; a distribution licensing route is deferred. The setup
 does not purchase a licence, create an account, or assign a release licence to
 this project. Preserve upstream notices and revisit the route before distribution.
 
-M2 supplies the silent VST3 foundation and build/validation/staging scripts above.
-M3 is planned as a fixed saw for live MIDI and FL Studio's piano roll, with no
-effects, filters, or adjustable amplitude settings. Recommended voice/velocity/fade
-defaults and acceptance criteria are in [SPEC](docs/SPEC.md); implementation is pending.
+M2 supplied the VST3 foundation and build/validation/staging scripts above.
+M3 adds the fixed saw for live MIDI and FL Studio's piano roll. Adopted behavior
+and acceptance criteria are in [SPEC](docs/SPEC.md); FL listening and host acceptance
+must be recorded separately from automated validation. Sustain, pitch bend, and
+modulation are deferred. When all eight voices are busy, an old voice fades for
+at most 1 ms before its replacement starts.
 
 ## Working together
 
