@@ -9,3 +9,4 @@
 *.suo
 __pycache__/
 *.pyc
+plugin-install.json
