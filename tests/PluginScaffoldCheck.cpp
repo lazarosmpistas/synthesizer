@@ -77,6 +77,199 @@ juce::MidiBuffer noteOff(int note, int channel = 1, int position = 0)
     return midi;
 }
 
+void setParameter(SynthesizerAudioProcessor& processor, const char* id, float value)
+{
+    auto* parameter = processor.getParameterState().getParameter(id);
+    require(parameter != nullptr, "Missing envelope parameter.");
+    parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+void checkEnvelope(double rate)
+{
+    laz::dsp::AmpEnvelope envelope;
+    envelope.prepare(rate);
+    laz::dsp::AmpEnvelope::Parameters settings { 0.01, 0.02, 0.25, 0.03 };
+    envelope.setParameters(settings);
+    envelope.noteOn();
+    const int attack = static_cast<int>(std::ceil(rate * settings.attack));
+    const int decay = static_cast<int>(std::ceil(rate * settings.decay));
+    const int release = static_cast<int>(std::ceil(rate * settings.release));
+    for (int i = 0; i < attack; ++i)
+        require(std::abs(envelope.nextSample() - (i + 1.0) / attack) < 1.0e-9, "ADSR attack timing differed.");
+    for (int i = 0; i < decay; ++i)
+        require(std::abs(envelope.nextSample() - (1.0 - 0.75 * (i + 1.0) / decay)) < 1.0e-9,
+                "ADSR decay timing or sustain target differed.");
+    require(envelope.nextSample() == 0.25 && envelope.isHeld(), "ADSR did not sustain while held.");
+    envelope.noteOff();
+    for (int i = 0; i < release; ++i)
+        require(std::abs(envelope.nextSample() - 0.25 * (1.0 - (i + 1.0) / release)) < 1.0e-9,
+                "ADSR release timing differed.");
+    require(!envelope.isActive() && envelope.nextSample() == 0.0, "ADSR failed to become idle.");
+
+    // Early note-off starts release at the current attack/decay level.
+    for (const int heldSamples : { attack / 2, attack + decay / 2 })
+    {
+        envelope.noteOn();
+        double level = 0.0;
+        for (int i = 0; i < heldSamples; ++i)
+            level = envelope.nextSample();
+        envelope.noteOff();
+        require(std::abs(envelope.nextSample() - level * (1.0 - 1.0 / release)) < 1.0e-9,
+                "Early note-off jumped to a different level.");
+        for (int i = 1; i < release; ++i)
+            envelope.nextSample();
+        require(!envelope.isActive(), "Early note-off became stuck.");
+    }
+
+    // Changing sustain while held must take 10 ms, including a ramp to zero.
+    envelope.noteOn();
+    for (int i = 0; i < attack + decay; ++i)
+        envelope.nextSample();
+    settings.sustain = 1.0;
+    envelope.setParameters(settings);
+    const int smoothing = static_cast<int>(std::ceil(rate * 0.01));
+    require(std::abs(envelope.nextSample() - (0.25 + 0.75 / smoothing)) < 1.0e-9,
+            "Live sustain change was discontinuous.");
+    for (int i = 1; i < smoothing; ++i)
+        envelope.nextSample();
+    require(envelope.nextSample() == 1.0, "Live sustain change missed its target.");
+    settings.sustain = 0.0;
+    envelope.setParameters(settings);
+    for (int i = 0; i < smoothing; ++i)
+        envelope.nextSample();
+    require(envelope.nextSample() == 0.0 && envelope.isHeld(), "Zero sustain lost note bookkeeping.");
+    envelope.noteOff();
+    for (int i = 0; i < release; ++i)
+        envelope.nextSample();
+    require(!envelope.isActive(), "Zero-sustain note did not release.");
+
+    // Duration automation retargets each active segment from its current level.
+    settings = { 1.0, 1.0, 0.5, 1.0 };
+    envelope.setParameters(settings);
+    envelope.noteOn();
+    const double beforeAttack = envelope.nextSample();
+    settings.attack = 0.01;
+    envelope.setParameters(settings);
+    require(std::abs(envelope.nextSample() - (beforeAttack + (1.0 - beforeAttack) / attack)) < 1.0e-9,
+            "Attack automation jumped.");
+    for (int i = 1; i < attack; ++i)
+        envelope.nextSample();
+    const double beforeDecay = envelope.nextSample();
+    settings.decay = 0.02;
+    envelope.setParameters(settings);
+    require(std::abs(envelope.nextSample() - (beforeDecay + (0.5 - beforeDecay) / decay)) < 1.0e-9,
+            "Decay automation jumped.");
+    envelope.noteOff();
+    const double beforeRelease = envelope.nextSample();
+    settings.release = 0.03;
+    envelope.setParameters(settings);
+    require(std::abs(envelope.nextSample() - beforeRelease * (1.0 - 1.0 / release)) < 1.0e-9,
+            "Release automation jumped.");
+    for (int i = 1; i < release; ++i)
+        envelope.nextSample();
+    require(!envelope.isActive(), "Automated release never ended.");
+}
+
+void checkParametersAndState()
+{
+    SynthesizerAudioProcessor processor;
+    require(processor.getParameters().size() == 4, "Expected four host envelope controls.");
+    constexpr std::array<float, 4> values { 20.0f, 40.0f, 0.25f, 60.0f };
+    for (std::size_t i = 0; i < values.size(); ++i)
+        setParameter(processor, laz::parameters::envelope[i].id, values[i]);
+    processor.prepareToPlay(48000.0, 1024);
+
+    // Verify the actual processor audio, not only the envelope helper.
+    SynthesizerAudioProcessor reference;
+    reference.prepareToPlay(48000.0, 1024);
+    const auto actual = render(processor, 8000, noteOn(69));
+    const auto full = render(reference, 8000, noteOn(69));
+    for (int i = 144; i < 8000; ++i)
+    {
+        const double level = i < 960 ? (i + 1.0) / 960.0
+            : i < 2880 ? 1.0 - 0.75 * (i - 959.0) / 1920.0 : 0.25;
+        require(std::abs(actual[static_cast<std::size_t>(i)] - full[static_cast<std::size_t>(i)] * level) < 2.0e-6,
+                "Host parameters did not control the audible envelope.");
+    }
+    const auto tail = render(processor, 3000, noteOff(69));
+    require(!silent(Samples(tail.begin(), tail.begin() + 2800))
+                && silent(Samples(tail.begin() + 2880, tail.end())), "Release knob did not control the audio tail.");
+
+    juce::MemoryBlock saved;
+    processor.getStateInformation(saved);
+    require(saved.getSize() > 0, "Envelope settings were not saved.");
+    SynthesizerAudioProcessor restored;
+    restored.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+    restored.prepareToPlay(48000.0, 1024);
+    require(silent(render(restored, 64)), "Saved settings restored a held note.");
+    for (std::size_t i = 0; i < values.size(); ++i)
+        require(std::abs(restored.getParameterState().getRawParameterValue(laz::parameters::envelope[i].id)->load()
+                         - values[i]) < 0.001f, "Envelope state round trip changed a setting.");
+    processor.reset();
+    require(render(processor, 8000, noteOn(69)) == render(restored, 8000, noteOn(69)),
+            "State restore changed the resulting sound.");
+
+    // Bad, incomplete, future-version and out-of-range state must be ignored atomically.
+    const auto original = processor.getParameterState().copyState();
+    for (int kind = 0; kind < 7; ++kind)
+    {
+        auto invalid = original.createCopy();
+        invalid.setProperty("schemaVersion", kind == 0 ? 99 : 1, nullptr);
+        if (kind == 1)
+            invalid.removeChild(0, nullptr);
+        if (kind == 2)
+            invalid.getChildWithProperty("id", "ampAttackMs").setProperty("value", -20.0, nullptr);
+        if (kind == 3)
+            invalid.setProperty("schemaVersion", 0, nullptr);
+        if (kind == 4)
+            invalid.getChildWithProperty("id", "ampSustain").setProperty("value", "not-a-number", nullptr);
+        if (kind == 5)
+            invalid.getChildWithProperty("id", "ampSustain").setProperty("value", "nan", nullptr);
+        if (kind == 6)
+            invalid.getChildWithProperty("id", "ampSustain").setProperty("value", "inf", nullptr);
+        juce::MemoryBlock bytes;
+        juce::AudioProcessor::copyXmlToBinary(*invalid.createXml(), bytes);
+        processor.setStateInformation(bytes.getData(), static_cast<int>(bytes.getSize()));
+        for (std::size_t i = 0; i < values.size(); ++i)
+            require(std::abs(processor.getParameterState().getRawParameterValue(laz::parameters::envelope[i].id)->load()
+                             - values[i]) < 0.001f, "Invalid state partially changed a parameter.");
+    }
+    const std::array<char, 9> garbage {{ 'b', 'a', 'd' }};
+    processor.setStateInformation(garbage.data(), static_cast<int>(garbage.size()));
+    require(processor.getParameterState().getRawParameterValue("ampSustain")->load() == values[2],
+            "Malformed state changed a parameter.");
+    processor.setStateInformation(nullptr, 0);
+    for (const auto& definition : laz::parameters::envelope)
+        require(std::abs(processor.getParameterState().getRawParameterValue(definition.id)->load()
+                         - definition.defaultValue) < 0.001f,
+                "Legacy empty state did not restore the original saw defaults.");
+
+    // Extreme settings, long release, automation under voice exhaustion, and panic.
+    for (const auto& definition : laz::parameters::envelope)
+        setParameter(processor, definition.id, definition.maximum);
+    processor.reset();
+    auto midi = noteOn(69);
+    for (int i = 0; i < 15; ++i)
+        midi.addEvent(juce::MidiMessage::noteOn(1 + i % 2, 60 + i, 1.0f), i * 2);
+    render(processor, 1024, midi);
+    for (int block = 0; block < 32; ++block)
+    {
+        setParameter(processor, "ampSustain", block % 2 == 0 ? 0.0f : 1.0f);
+        render(processor, 256);
+    }
+    midi.clear();
+    midi.addEvent(juce::MidiMessage::allNotesOff(1), 0);
+    midi.addEvent(juce::MidiMessage::allNotesOff(2), 0);
+    render(processor, 480000, midi);
+    require(silent(render(processor, 64)), "Maximum release left a stuck note.");
+    require(processor.getTailLengthSeconds() >= 10.0, "Reported tail truncates maximum release.");
+    for (const auto& definition : laz::parameters::envelope)
+        setParameter(processor, definition.id, definition.minimum);
+    render(processor, 1024, noteOn(69));
+    render(processor, 1024, noteOff(69));
+    require(silent(render(processor, 64)), "Minimum settings left a stuck note.");
+}
+
 void checkPitchAndFades(SynthesizerAudioProcessor& processor, double rate)
 {
     const int attack = static_cast<int>(std::ceil(rate * 0.003));
@@ -98,6 +291,11 @@ void checkPitchAndFades(SynthesizerAudioProcessor& processor, double rate)
     for (int i = 1; i < attack + 8; ++i)
     {
         const double level = std::min(1.0, (i + 1.0) / attack);
+        if (std::abs(fade[static_cast<std::size_t>(i)] - settled[static_cast<std::size_t>(i)] * level) >= 0.000002)
+            std::cerr << "Attack mismatch: rate=" << rate << " sample=" << i << " actual="
+                      << fade[static_cast<std::size_t>(i)] << " expected="
+                      << settled[static_cast<std::size_t>(i)] * level << " attackMs="
+                      << processor.getParameterState().getRawParameterValue("ampAttackMs")->load() << '\n';
         require(std::abs(fade[static_cast<std::size_t>(i)] - settled[static_cast<std::size_t>(i)] * level) < 0.000002,
                 "Fixed attack duration or shape differed.");
     }
@@ -322,7 +520,7 @@ void checkAliasReduction()
 }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI initialiseGui;
     try
@@ -357,6 +555,7 @@ int main()
                 require(silent(render(processor, size)), "Voice remained active after release.");
             }
             checkPitchAndFades(processor, rate);
+            checkEnvelope(rate);
             render(processor, 1024, noteOn(69));
             processor.releaseResources();
             require(silent(render(processor, 64)), "releaseResources left active notes.");
@@ -372,6 +571,7 @@ int main()
         for (const auto size : { 1, 64, 256 })
             require(sequence == renderSequence(size), "MIDI/audio depended on block size.");
         checkAliasReduction();
+        checkParametersAndState();
 
         // Empty blocks and boundary events update MIDI state without inventing
         // audio samples. A note scheduled at the block end starts in the next block.
@@ -413,15 +613,39 @@ int main()
         for (int iteration = 0; iteration < 3; ++iteration)
         {
             std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
-            require(editor != nullptr && editor->getWidth() == 560 && editor->getHeight() == 320,
+            require(editor != nullptr && editor->getWidth() == 640 && editor->getHeight() == 400,
                     "Editor could not be recreated at its expected size.");
-            juce::Image preview(juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
-            juce::Graphics graphics(preview);
-            editor->paint(graphics);
+            for (const auto& definition : laz::parameters::envelope)
+            {
+                auto* knob = dynamic_cast<juce::Slider*>(editor->findChildWithID(definition.id));
+                require(knob != nullptr, "Editor is missing an envelope knob.");
+                auto* parameter = processor.getParameterState().getParameter(definition.id);
+                knob->setValue(definition.midpoint, juce::sendNotificationSync);
+                require(std::abs(parameter->convertFrom0to1(parameter->getValue()) - definition.midpoint) < 0.01f,
+                        "Knob did not update its host parameter.");
+                setParameter(processor, definition.id, definition.defaultValue);
+                require(std::abs(knob->getValue() - definition.defaultValue) < 0.01,
+                        "Host parameter did not update its knob.");
+            }
+            juce::Image preview(juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true,
+                                juce::SoftwareImageType());
+            {
+                juce::Graphics graphics(preview);
+                editor->setVisible(true); // Paint children offscreen without a native peer.
+                editor->paintEntireComponent(graphics, true);
+            }
+            require(preview.getPixelAt(0, 0).getAlpha() == 255, "Editor preview was not painted.");
+            if (iteration == 0 && argc == 3 && juce::String(argv[1]) == "--editor-preview")
+            {
+                auto output = juce::File(juce::String(argv[2])).createOutputStream();
+                require(output != nullptr && juce::PNGImageFormat().writeImageToStream(preview, *output),
+                        "Could not write the editor preview.");
+            }
         }
 
         std::cout << "PASS: saw pitch/harmonics/alias reduction, fades/velocity, sample-position MIDI,\n"
-                     "eight voices/stealing/channels/panic, three rates/block sizes, lifecycle/state/editor.\n";
+                     "eight voices/stealing/channels/panic, three rates/block sizes, ADSR/automation,\n"
+                     "versioned/legacy/invalid state, lifecycle, and bidirectional editor controls.\n";
         return 0;
     }
     catch (const std::exception& error)

@@ -3,9 +3,20 @@
 A Windows x64 VST3 synthesizer project for **FL Studio 21.2.3 build 4004**, using
 C++17, JUCE, and CMake. Private use is the current goal. The development
 environment is installed. **LAZ-SYNTH v0.1.0**, vendor **LAZ**, is a minimal VST3 instrument
-with a native JUCE editor, MIDI input, and stereo output. It now plays a fixed
-saw sound: eight voices, velocity response, and short internal note fades.
-There are no effects, filters, or sound controls yet.
+with a native JUCE editor, MIDI input, and stereo output. It plays a saw sound
+with eight voices, velocity response, and attack/decay/sustain/release knobs.
+The envelope controls support host automation and project save/restore.
+
+| Control | Range | Default |
+| --- | --- | --- |
+| Attack | 1–5000 ms | 3 ms |
+| Decay | 1–5000 ms | 100 ms |
+| Sustain | 0–100% | 100% |
+| Release | 1–10000 ms | 5 ms |
+
+Drag a knob or type into its value box; double-click the knob to reset it.
+Lower sustain to hear decay, which controls the time from peak to the held level.
+Defaults preserve the original fixed saw. There are no effects or filters yet.
 
 ## Build and open the plugin
 
@@ -22,13 +33,16 @@ without GUI tests, and staging with SHA256 comparisons (including repeated stagi
 The renamed E: installation also passes full GUI validation and native loading
 through its standard-folder junction. Physical updates and repeated setup were
 verified with a non-admin token; see STATE for the exact checkpoint.
-The processor check exercises saw pitch/harmonics, alias reduction, fixed fades,
+The processor check exercises saw pitch/harmonics, alias reduction, default fades,
 velocity, MIDI timing, repeated notes/channels, eight voices/stealing, and panic
 messages at 44.1/48/96 kHz and 0/1/64/256/1024 samples. It retains layout rejection,
-lifecycle reset, and editor recreation/offscreen painting.
+lifecycle reset, editor recreation/offscreen painting, ADSR timing and live
+changes, bidirectional controls, versioned state, and legacy empty-state loading.
 pluginval loads the actual VST3 bundle and checks processing at 64/256/1024 samples.
-It has no user parameters or persistent settings yet; its state
-callbacks are empty. Passing state/automation checks does not verify future controls.
+Its four envelope parameters are saved; live notes are never persisted. Host
+automation is read once per audio callback. Active stages ramp from their current
+level after a relevant change; sustain changes use a 10 ms ramp. The plugin
+reports a conservative 10-second tail so maximum release is included in exports.
 
 The build produces this **folder bundle**:
 
@@ -91,17 +105,20 @@ In **FL Studio 21.2.3 build 4004**:
    **LAZ**, without an error. Star it to add it to favorites if desired.
 4. Add it from **Channel Rack > + > More plugins**, or the Browser's
    **Plugin database > Installed > Generators > VST3**. The editor should show
-   **Saw oscillator** and the MIDI/piano-roll prompt.
+   **Amplitude envelope** and four ADSR knobs.
 5. Close/reopen its editor, add a second instance, then save/reopen a test project.
    Both editors should reopen. Play MIDI and piano-roll melodies/chords; verify
    short/long/repeated/overlapping notes, looping, stop/restart, and audio export.
    Notes should stop after release without stuck voices or objectionable clicks.
+6. Change all four knobs, automate them during notes, and save/reopen the project.
+   Confirm the settings and sound return. Check an older fixed-saw project too.
 
 FL Studio's documented VST3 scan locations are standard folders. The junction
 provides a standard path while keeping the files on E:; adding E: or the staging
 folder as a custom VST search path alone is insufficient. See the
 [official installation guide](https://www.image-line.com/fl-studio-learning/fl-studio-online-manual/html/basics_externalplugins.htm).
-Record saw host results in STATE and the [M3 report](docs/validation/M3-fixed-saw-2026-10-12.md).
+Record envelope host results in STATE and the [M4 report](docs/validation/M4-amp-envelope-2026-10-21.md).
+Historical fixed-saw evidence is in the [M3 report](docs/validation/M3-fixed-saw-2026-10-12.md).
 On 2026-10-12, the user confirmed the original scaffold loads and the renamed
 LAZ-SYNTH installation on E: opens in FL Studio. Editor lifecycle, multiple
 instances, and project save/reopen checks remain unreported.
@@ -252,9 +269,10 @@ does not purchase a licence, create an account, or assign a release licence to
 this project. Preserve upstream notices and revisit the route before distribution.
 
 M2 supplied the VST3 foundation and build/validation/staging scripts above.
-M3 adds the fixed saw for live MIDI and FL Studio's piano roll. Adopted behavior
+M3 added the fixed saw for live MIDI and FL Studio's piano roll; M4 adds its ADSR
+controls. Adopted behavior
 and acceptance criteria are in [SPEC](docs/SPEC.md); FL listening and host acceptance
-must be recorded separately from automated validation. Sustain, pitch bend, and
+must be recorded separately from automated validation. MIDI sustain pedal, pitch bend, and
 modulation are deferred. When all eight voices are busy, an old voice fades for
 at most 1 ms before its replacement starts.
 

@@ -199,6 +199,38 @@ validation in [STATE](STATE.md). Update [SPEC](SPEC.md) when a requirement chang
   required. There are still no parameters or persisted settings, and VST3 identity
   and version 0.1.0 remain unchanged. No performance claim is made.
 
+## D013 - Automatable amplitude ADSR with legacy defaults
+
+- Date: 2026-10-21.
+- Status: Basic envelope knobs requested by the user; ranges, defaults, and
+  implementation details adopted within that request. Supersedes D012's fixed
+  fades/no-parameters portion; its oscillator, gain, and MIDI policy remain.
+- Choice: A preallocated linear ADSR per voice with four stable APVTS parameters:
+  `ampAttackMs`, `ampDecayMs`, `ampSustain`, `ampReleaseMs` (JUCE ID version hint 1).
+  Attack/decay 1–5000 ms, release 1–10000 ms, sustain 0–1 displayed as 0–100%.
+  Times use 0.1 ms steps, sustain 0.001 steps; time knob midpoints 250/250/500 ms.
+  Defaults 3/100 ms, 100%, 5 ms preserve the old saw; decay is neutral at 100%.
+- Read cached lock-free atomics once per callback. Relevant changes retarget
+  attack/decay/release from the current level over the new full duration;
+  sustain-stage target changes ramp for 10 ms. Unchanged settings do not restart
+  stages. Stealing freezes parameter updates on the outgoing envelope, preserving
+  the existing at-most-1-ms replacement delay. No real-time ValueTree access.
+- Store parameter-only XML/binary state under `LAZ_SYNTH_STATE`, schemaVersion 1.
+  Accept legacy zero-byte state as original defaults. Validate all settings before
+  replacement; reject bad numbers, incomplete state, and unknown versions. Keep
+  transient voices out of state and preserve the existing plugin identity.
+- Reason: Supply useful sound shaping plus automation/project recall immediately,
+  while keeping the current sound on old projects. A small custom envelope supports
+  changes during active notes without jumping the amplitude. Snap initial APVTS
+  time values to their advertised steps before converting to samples, avoiding
+  off-grid default rounding that could add a sample at 48 kHz.
+- Consequence: The editor is now 640x400 with four native rotary controls,
+  editable values, and double-click reset. Report a conservative 10-second tail
+  even at shorter release settings. Host automation is callback-granular; repeated
+  duration changes can extend an in-progress stage, with each new ramp bounded by
+  the selected duration. FL listening/automation/old-project checks remain separate
+  from automated validation. No performance or alias-free-output claim is made.
+
 ## Adding or revising a decision
 
 Use the next D-number, date, status, choice, reason, and consequence. Mark a

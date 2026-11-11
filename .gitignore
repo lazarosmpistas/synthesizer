@@ -10,3 +10,22 @@
 __pycache__/
 *.pyc
 plugin-install.json
+
+# Local agent, editor, and cloud settings
+/.codex/
+/.agents/
+/.aws/
+/.vscode/
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Other local CMake build trees
+/cmake-build-*/

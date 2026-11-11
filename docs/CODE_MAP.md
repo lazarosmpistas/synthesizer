@@ -1,6 +1,6 @@
 # Project navigation
 
-Updated: 2026-10-12. This map describes the current files; update it when paths or
+Updated: 2026-10-21. This map describes the current files; update it when paths or
 responsibilities change. Start with [STATE](STATE.md) for the active task.
 
 ## Existing files
@@ -28,14 +28,17 @@ responsibilities change. Start with [STATE](STATE.md) for the active task.
 | [scripts/Validate-Plugin.ps1](../scripts/Validate-Plugin.ps1) | Pinned pluginval strictness 5; optional GUI-test skip/path | Actual VST3 validation |
 | [scripts/Stage-Plugin.ps1](../scripts/Stage-Plugin.ps1) | Workspace staging or E: install without UAC, backups/hashes/legacy retirement | Updating a built bundle |
 | [scripts/Configure-PluginInstall.ps1](../scripts/Configure-PluginInstall.ps1) | One-time original relocation, E: install, per-plugin FL junction, optional validation/preview | First install/migration setup |
-| [Source/Plugin/PluginProcessor.h](../Source/Plugin/PluginProcessor.h), [PluginProcessor.cpp](../Source/Plugin/PluginProcessor.cpp) | MIDI/stereo instrument lifecycle, sample-position MIDI/rendering, factory, empty state hooks | Host/audio behavior |
+| [Source/Plugin/PluginProcessor.h](../Source/Plugin/PluginProcessor.h), [PluginProcessor.cpp](../Source/Plugin/PluginProcessor.cpp) | MIDI/stereo lifecycle, sample-position MIDI, atomic ADSR snapshots, APVTS/versioned state and factory | Host/audio/parameter behavior |
+| [Source/Plugin/Parameters.h](../Source/Plugin/Parameters.h) | Stable ADSR IDs, ranges/defaults/skew, schema version, maximum reported tail | Parameter/state contract |
 | [Source/DSP/SawOscillator.h](../Source/DSP/SawOscillator.h) | Phase-accumulating rising saw with PolyBLEP discontinuity correction | Oscillator/pitch/alias behavior |
-| [Source/DSP/SawVoiceEngine.h](../Source/DSP/SawVoiceEngine.h), [SawVoiceEngine.cpp](../Source/DSP/SawVoiceEngine.cpp) | Eight preallocated voices, tuning/velocity/fades, FIFO note-off, queued stealing and channel panic | MIDI/voice/audio behavior |
-| [Source/UI/PluginEditor.h](../Source/UI/PluginEditor.h), [PluginEditor.cpp](../Source/UI/PluginEditor.cpp) | Native fixed-size foundation editor | Editor changes |
+| [Source/DSP/AmpEnvelope.h](../Source/DSP/AmpEnvelope.h) | Per-voice linear ADSR, continuous live retargeting, sustain smoothing, bounded stealing release | Envelope/automation behavior |
+| [Source/DSP/SawVoiceEngine.h](../Source/DSP/SawVoiceEngine.h), [SawVoiceEngine.cpp](../Source/DSP/SawVoiceEngine.cpp) | Eight preallocated voices, tuning/velocity/ADSR, FIFO note-off, queued stealing and channel panic | MIDI/voice/audio behavior |
+| [Source/UI/PluginEditor.h](../Source/UI/PluginEditor.h), [PluginEditor.cpp](../Source/UI/PluginEditor.cpp) | Native 640x400 editor, custom rotary drawing, four attached ADSR knobs/value fields | Editor changes |
 | [tests/ToolchainSmoke.cpp](../tests/ToolchainSmoke.cpp) | Windows x64 compiler/SDK/runtime check | Toolchain failures |
 | [tests/JuceModuleSmoke.cpp](../tests/JuceModuleSmoke.cpp) | JUCE audio/DSP/MIDI/parameter/GUI integration check | Module verification; not the product engine |
-| [tests/PluginScaffoldCheck.cpp](../tests/PluginScaffoldCheck.cpp) | Product saw/timing/voices/panic/state checks plus layouts/lifecycle/editor harness | Product regression checks; CTest plugin.scaffold |
-| [docs/validation/M3-fixed-saw-2026-10-12.md](validation/M3-fixed-saw-2026-10-12.md) | Fixed saw build, behavior/artifact evidence, and pending FL checks | Auditing M3 evidence |
+| [tests/PluginScaffoldCheck.cpp](../tests/PluginScaffoldCheck.cpp) | Saw/voices/panic, ADSR/automation/state compatibility, layouts/lifecycle/editor; optional --editor-preview PNG path | Product regression checks; CTest plugin.scaffold |
+| [docs/validation/M4-amp-envelope-2026-10-21.md](validation/M4-amp-envelope-2026-10-21.md) | ADSR source/artifact evidence and pending FL host acceptance | Auditing M4 controls |
+| [docs/validation/M3-fixed-saw-2026-10-12.md](validation/M3-fixed-saw-2026-10-12.md) | Fixed saw build/artifact evidence, user listening acceptance, and remaining FL host checks | Auditing M3 evidence |
 | [docs/validation/M1-2026-10-11.md](validation/M1-2026-10-11.md) | Exact setup-check results and source/artifact hashes | Auditing M1 evidence |
 | [docs/validation/M1-environment-complete-2026-10-11.md](validation/M1-environment-complete-2026-10-11.md) | Completed environment evidence, resolved failures, final source/artifact hashes | Auditing installed M1 environment |
 | [docs/validation/M2-plugin-scaffold-2026-10-12.md](validation/M2-plugin-scaffold-2026-10-12.md) | Original scaffold build/validation and user-confirmed FL loading | Auditing the original scaffold |
@@ -48,8 +51,11 @@ clears output, renders the voice engine between MIDI event positions, and consum
 MIDI; `createEditor` constructs `SynthesizerAudioProcessorEditor`.
 `PluginScaffoldCheck::main` exercises the same shared processor/editor code as
 the wrapper. Environment entry points remain `ToolchainSmoke::main` and
-`JuceModuleSmoke::main`. `SawVoiceEngine` owns the fixed oscillator/fade pool;
-`SawOscillator::nextSample` generates each voice's saw. No parameters exist yet. Command usage
+`JuceModuleSmoke::main`. `SawVoiceEngine` owns the preallocated oscillator/envelope pool;
+`SawOscillator::nextSample` generates each voice's saw. `AmpEnvelope::nextSample`
+shapes each voice; `getParameterState` supplies editor attachments and host controls.
+The callback snapshots cached raw atomics, while state serialization stays outside
+rendering. Command usage
 is in README; current validation/host status is in STATE.
 
 Generated paths (ignored by Git):
@@ -64,6 +70,7 @@ Generated paths (ignored by Git):
 - `build/plugin/Testing/Temporary/LastTest.log`: plugin preset's two CTest checks.
 - `artifacts/VST3/LAZ-SYNTH.vst3/`: staged bundle; every copied file is hash-checked.
 - `artifacts/validation/pluginval-headless.txt`, `pluginval-full.txt`: latest validator logs.
+- `artifacts/validation/adsr-editor-final.png`: software-rendered editor preview.
 - `artifacts/validation/install-transcript.txt`: latest physical-install transcript.
 - `artifacts/validation/install-setup-transcript.txt`: one-time migration/junction transcript.
 - `artifacts/install-backups/`: preserved matching bundles from installation updates.

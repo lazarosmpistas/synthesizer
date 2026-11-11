@@ -11,8 +11,7 @@ void SawVoiceEngine::prepare(double sampleRate) noexcept
     if (!std::isfinite(sampleRate) || sampleRate <= 0.0)
         sampleRate = 48000.0;
 
-    attackSamples = std::max(1, static_cast<int>(std::ceil(sampleRate * attackSeconds)));
-    releaseSamples = std::max(1, static_cast<int>(std::ceil(sampleRate * releaseSeconds)));
+    rate = sampleRate;
     stealSamples = std::max(1, static_cast<int>(std::ceil(sampleRate * stealSeconds)));
     for (int note = 0; note < 128; ++note)
         increments[static_cast<std::size_t>(note)] = 440.0 * std::exp2((note - 69) / 12.0) / sampleRate;
@@ -30,22 +29,18 @@ void SawVoiceEngine::startVoice(Voice& voice, Note note) noexcept
     voice.current = note;
     voice.pending = {};
     voice.oscillator.start(increments[static_cast<std::size_t>(note.number)]);
-    voice.level = 0.0;
-    voice.step = 1.0 / attackSamples;
-    voice.remaining = attackSamples;
-    voice.stage = Stage::attack;
+    voice.stealing = false;
+    voice.envelope.prepare(rate);
+    voice.envelope.setParameters(envelopeParameters);
+    voice.envelope.noteOn();
 }
 
-void SawVoiceEngine::fadeVoice(Voice& voice, int samples) noexcept
+void SawVoiceEngine::setEnvelopeParameters(AmpEnvelope::Parameters parameters) noexcept
 {
-    if (voice.stage == Stage::idle)
-        return;
-    // Further steals shorten a fade if needed, but never restart or extend it.
-    if (voice.stage == Stage::release)
-        samples = std::min(samples, voice.remaining);
-    voice.remaining = samples;
-    voice.step = voice.level / samples;
-    voice.stage = Stage::release;
+    envelopeParameters = parameters;
+    for (auto& voice : voices)
+        if (!voice.stealing)
+            voice.envelope.setParameters(parameters);
 }
 
 void SawVoiceEngine::noteOn(int channel, int note, int velocity) noexcept
@@ -53,7 +48,7 @@ void SawVoiceEngine::noteOn(int channel, int note, int velocity) noexcept
     const Note incoming { note, channel, velocity / 127.0f, ++nextOrder };
     for (auto& voice : voices)
     {
-        if (voice.stage == Stage::idle)
+        if (!voice.envelope.isActive())
         {
             startVoice(voice, incoming);
             return;
@@ -67,7 +62,7 @@ void SawVoiceEngine::noteOn(int channel, int note, int velocity) noexcept
     auto oldest = std::numeric_limits<std::uint64_t>::max();
     for (auto& voice : voices)
     {
-        const int priority = voice.pending.number >= 0 ? 2 : voice.stage == Stage::release ? 0 : 1;
+        const int priority = voice.pending.number >= 0 ? 2 : voice.envelope.isReleasing() ? 0 : 1;
         const auto order = voice.pending.number >= 0 ? voice.pending.order : voice.current.order;
         if (priority < bestPriority || (priority == bestPriority && order < oldest))
         {
@@ -77,7 +72,8 @@ void SawVoiceEngine::noteOn(int channel, int note, int velocity) noexcept
         }
     }
     selected->pending = incoming;
-    fadeVoice(*selected, stealSamples);
+    selected->stealing = true;
+    selected->envelope.steal(stealSamples);
 }
 
 void SawVoiceEngine::noteOff(int channel, int note) noexcept
@@ -87,7 +83,7 @@ void SawVoiceEngine::noteOff(int channel, int note) noexcept
     auto oldest = std::numeric_limits<std::uint64_t>::max();
     for (auto& voice : voices)
     {
-        const bool held = voice.stage == Stage::attack || voice.stage == Stage::held;
+        const bool held = voice.envelope.isHeld();
         if (held && voice.current.channel == channel && voice.current.number == note
             && voice.current.order < oldest)
         {
@@ -107,7 +103,7 @@ void SawVoiceEngine::noteOff(int channel, int note) noexcept
         if (pending)
             selected->pending = {};
         else
-            fadeVoice(*selected, releaseSamples);
+            selected->envelope.noteOff();
     }
 }
 
@@ -126,9 +122,9 @@ void SawVoiceEngine::stopChannel(int channel, bool immediately) noexcept
             if (pending.number >= 0)
                 startVoice(voice, pending);
         }
-        else if (voice.stage == Stage::attack || voice.stage == Stage::held)
+        else if (voice.envelope.isHeld())
         {
-            fadeVoice(voice, releaseSamples);
+            voice.envelope.noteOff();
         }
     }
 }
@@ -158,27 +154,13 @@ void SawVoiceEngine::handleMidi(const std::uint8_t* data, int size) noexcept
 
 float SawVoiceEngine::nextSample(Voice& voice) noexcept
 {
-    if (voice.stage == Stage::idle)
+    if (!voice.envelope.isActive())
         return 0.0f;
-    if (voice.stage == Stage::attack)
-    {
-        voice.level += voice.step;
-        if (--voice.remaining == 0)
-        {
-            voice.level = 1.0;
-            voice.stage = Stage::held;
-        }
-    }
-    else if (voice.stage == Stage::release)
-    {
-        voice.level = std::max(0.0, voice.level - voice.step);
-        if (--voice.remaining == 0)
-            voice.level = 0.0;
-    }
 
+    const auto level = voice.envelope.nextSample();
     const float output = voice.oscillator.nextSample()
-        * static_cast<float>(voice.level) * voice.current.velocity * voiceGain;
-    if (voice.stage == Stage::release && voice.remaining == 0)
+        * static_cast<float>(level) * voice.current.velocity * voiceGain;
+    if (!voice.envelope.isActive())
     {
         const auto pending = voice.pending;
         voice = {};

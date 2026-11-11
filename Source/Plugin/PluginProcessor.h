@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "DSP/SawVoiceEngine.h"
+#include "Parameters.h"
 
 class SynthesizerAudioProcessor final : public juce::AudioProcessor
 {
@@ -12,7 +13,8 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return laz::dsp::SawVoiceEngine::releaseSeconds; }
+    double getTailLengthSeconds() const override { return laz::parameters::maximumTailSeconds; }
+    juce::AudioProcessorValueTreeState& getParameterState() noexcept { return parameters; }
 
     void prepareToPlay(double sampleRate, int maximumBlockSize) override;
     void releaseResources() override;
@@ -34,6 +36,8 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
 private:
+    juce::AudioProcessorValueTreeState parameters;
+    std::array<std::atomic<float>*, 4> envelopeValues {};
     laz::dsp::SawVoiceEngine engine;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthesizerAudioProcessor)

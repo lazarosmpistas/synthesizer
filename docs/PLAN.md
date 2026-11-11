@@ -65,9 +65,16 @@ feature milestone; saving/reopening an FL project remains an M3 host check.
 
 ## M4 - Sound development and interface refinement
 
-Deliverables: Small, individually validated additions selected from the product
-specification. Possible additions include filters, oscillators, modulation,
-polyphony, effects, presets, and interface improvements; none is committed yet.
+First selected addition (2026-10-21): amplitude ADSR controls. Deliver a per-voice
+attack/decay/sustain/release envelope, four native knobs with host automation,
+versioned parameter state with legacy empty-state compatibility, and behavioral
+checks. Preserve the saw, MIDI/voice handling, VST3 identity, and install workflow.
+Validate the actual VST3 and its controls, then verify listening, automation,
+save/reopen, older projects, and release tails in FL Studio. Detailed behavior
+and adopted ranges/defaults are in SPEC and DECISIONS D013.
+
+Later additions remain open: filters, oscillators, modulation, polyphony, effects,
+presets, and further interface improvements.
 
 Complete each addition with behavioral checks, relevant host/listening checks,
 documentation updates, and a recoverable source checkpoint.

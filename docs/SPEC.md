@@ -64,10 +64,43 @@ notes without stuck voices. Verify at 44.1/48/96 kHz and varying buffer sizes.
 In FL Studio, verify live MIDI, piano-roll melodies/chords, looping, stop/restart,
 audio export, two instances, and project save/reopen against the installed artifact.
 
-User parameters, automation, and a versioned settings format are deferred until
-controls are introduced. M3 still checks project save/reopen with the fixed sound;
+M3 deferred parameters/automation/state until controls were introduced in M4.
+M3 still checks project save/reopen with the fixed sound;
 active notes are transient and must not be restored as held voices. The broader
 subtractive-synth direction remains open beyond this first oscillator.
+
+## M4 first addition: amplitude envelope controls
+
+User request on 2026-10-21: basic knobs, including attack, release, and decay.
+Implement attack, decay, sustain, and release for each voice's amplitude envelope.
+Filters, effects, extra oscillators, and MIDI expression remain later choices.
+
+Adopted implementation choices within that request:
+
+- Four automatable rotary knobs with editable values and double-click reset.
+- Attack/decay: 1–5000 ms; release: 1–10000 ms, in 0.1 ms steps. Time knobs
+  favour short values (midpoints 250/250/500 ms). Sustain: 0–100% in 0.1% steps.
+- Defaults: attack 3 ms, decay 100 ms, sustain 100%, release 5 ms. These preserve
+  the original saw's sound; decay becomes audible when sustain is below 100%.
+- Linear ADSR stages. Note-off during attack/decay releases from the current level.
+  Live duration/decay-target changes retarget an active stage from its current
+  level over the new duration. Sustain-stage changes ramp over 10 ms. Parameters
+  are read once per callback. No sample-accurate parameter automation is claimed.
+- Retain eight voices, velocity, tuning, gain, FIFO release, channel panic, and
+  at most 1 ms stealing fades. Parameter changes cannot extend a stealing fade.
+- Stable IDs `ampAttackMs`, `ampDecayMs`, `ampSustain`, `ampReleaseMs`; version 1
+  state contains parameters only. Legacy empty M2/M3 state loads the original
+  defaults. Invalid, incomplete, and unsupported-version state is ignored.
+- Report the maximum 10-second release as the tail to cover settings changes.
+  Keep the existing VST3 identity and installation workflow.
+
+Acceptance: each knob audibly controls its ADSR stage, including short note-offs
+and zero sustain; changes stay continuous and bounded; voices release without
+becoming stuck. Verify 44.1/48/96 kHz, parameter extremes, saved-state round trips,
+legacy/invalid state, editor recreation and two-way parameter attachments, plus
+the existing saw/MIDI regressions. Build/CTest/pluginval must pass on the actual
+artifact. In FL Studio verify listening, automation, editor reopening, two
+instances, export tails, new-project save/reopen, and an older fixed-saw project.
 
 ## Quality requirements
 
@@ -83,10 +116,10 @@ subtractive-synth direction remains open beyond this first oscillator.
 | Choice | Current answer | Needed before |
 | --- | --- | --- |
 | Synth type and reference sounds | Fixed saw selected for M3; broader direction open | Later sound development |
-| First feature set and voice count | MIDI/piano-roll saw, no effects/filters/amp controls; eight voices adopted | Later polyphony choices |
-| MIDI expression and note transitions | Velocity, fixed fades, FIFO note-off, bounded stealing adopted; sustain/bend deferred | Later expression features |
+| First feature set and voice count | Eight-voice MIDI/piano-roll saw with ADSR; no effects/filters | Later sound/polyphony choices |
+| MIDI expression and note transitions | Velocity, ADSR, FIFO note-off, bounded stealing; MIDI sustain pedal/bend deferred | Later expression features |
 | Distribution and release licensing | Private use now; release route deferred | Distribution |
-| Interface style | Foundation UI; refinement open | Interface refinement |
+| Interface style | Native dark editor with four envelope knobs; further refinement open | Interface refinement |
 | Performance target and test machine | Unspecified | Benchmark acceptance |
 
 Record settled choices here and add significant rationale to DECISIONS.md.

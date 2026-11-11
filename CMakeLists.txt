@@ -90,6 +90,8 @@ if(SYNTH_BUILD_PLUGIN)
     target_sources(Synthesizer PRIVATE
         Source/Plugin/PluginProcessor.cpp
         Source/Plugin/PluginProcessor.h
+        Source/Plugin/Parameters.h
+        Source/DSP/AmpEnvelope.h
         Source/DSP/SawOscillator.h
         Source/DSP/SawVoiceEngine.cpp
         Source/DSP/SawVoiceEngine.h

@@ -121,6 +121,31 @@ Raw pluginval evidence: `artifacts/validation/pluginval-headless.txt` or
 - Record ordinary piano-roll note playback separately from any optional MIDI
   expression. Automation tests are not applicable while there are no user parameters.
 
+## M4 amplitude envelope controls
+
+- Keep all default-sound M3 regressions. At 44.1/48/96 kHz verify linear attack,
+  decay to sustain, held level, release timing, early note-off in attack/decay,
+  zero sustain, and live duration/target retargeting without amplitude jumps.
+- Verify actual processor audio follows all four host parameters, in addition
+  to testing the envelope helper. Exercise minimum/maximum settings, automation
+  under voice exhaustion, and eventual silence after the maximum 10-second tail.
+- Check the four stable IDs, settings/sound round trips, no saved live notes,
+  legacy empty state, invalid/incomplete state, non-finite values, and unknown
+  schema versions. State rejection must leave every setting unchanged.
+- Recreate/paint the editor offscreen, including its children; verify each knob
+  updates its parameter and host changes update the knob. Use software images
+  and finish drawing before reading/encoding pixels. The harness accepts optional
+  `--editor-preview <absolute PNG path>` to inspect the actual rendered editor.
+- Run build/CTest, headless pluginval (including automation/state), stage/install,
+  full GUI validation, and installed-junction loading using the existing commands.
+  Record exact final source/binary hashes; earlier M3 results do not validate ADSR.
+- FL Studio: listen to each ADSR stage, automate controls while notes play, test
+  early note-offs/repeated notes/chords and long release/export tails. Verify
+  editor reopening, independent instances, new-project save/reopen, and an older
+  fixed-saw project. Record the host version, sample rate, and buffer size.
+- Audit the callback for allocation/locks/file access/logs. Measure performance
+  separately before making an optimization or benchmark claim.
+
 ## Code and build changes
 
 Run checks appropriate to the affected behavior using the documented commands.
@@ -156,7 +181,8 @@ add tests solely to reproduce the implementation's internal structure.
 
 Project save/reopen is required for the first playable milestone. Automation and
 settings-restoration checks become required when user parameters are introduced;
-M3's fixed saw has no such controls. Additional checks depend on supported features.
+M4 introduces these controls and requires those checks. Additional checks depend
+on supported features.
 
 ## Recording evidence
 
